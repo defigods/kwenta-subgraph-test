@@ -1,0 +1,63 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Deploy Subgraphs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Set npm cache directory
+        run: npm config set cache .npm-cache --global
+        continue-on-error: true
+
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            .npm-cache
+            node_modules
+          key: ${{ runner.os }}-alpine-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-alpine-node-
+        continue-on-error: true
+      # issue with github actions, see https://github.com/actions/setup-node/issues/214#issuecomment-810829250
+      - name: Reconfigure git to use HTTP authentication
+        run: >
+          git config --global url."https://github.com/".insteadOf
+          ssh://git@github.com/
+      - run: npm ci
+      - name: Authenticate
+        run: npm run auth ${{ secrets.ACCESS_TOKEN }}
+      - name: Deploy optimistic goerli perps subgraph
+        run: node scripts/deploy.js -t kwenta -s perps -n optimism-goerli -p hosted_service -v 0.0.1
+        env:
+          NETWORK: optimism-goerli
+      - name: Deploy optimistic goerli rates subgraph
+        run: node scripts/deploy.js -t kwenta -s latest-rates -n optimism-goerli -p hosted_service -v 0.0.1
+        env:
+          NETWORK: optimism-goerli
+      - name: Deploy optimistic mainnet perps subgraph
+        run: node scripts/deploy.js -t kwenta -s perps -n optimism -p hosted_service -v 0.0.1
+        env:
+          NETWORK: optimism
+      - name: Deploy optimistic mainnet rates subgraph
+        run: node scripts/deploy.js -t kwenta -s latest-rates -n optimism -p hosted_service -v 0.0.1
+        env:
+          NETWORK: optimism
+      - name: Deploy ethereum mainnet main subgraph
+        run: node scripts/deploy.js -t kwenta -s main -n mainnet -p hosted_service -v 0.0.1
+        env:
+          NETWORK: mainnet
+      - name: Deploy goerli testnet main subgraph
+        run: node scripts/deploy.js -t kwenta -s main -n goerli -p hosted_service -v 0.0.1
+        env:
+          NETWORK: goerli
