@@ -5,6 +5,19 @@ type FuturesMarket @entity {
   marketStats: FuturesCumulativeStat!
 }
 
+enum MarketPeriod {
+  Daily
+}
+
+type HistoricalMarketStat @entity {
+  id: ID!
+  timestamp: BigInt!
+  marketKey: Bytes!
+  marketAsset: Bytes!
+  period: MarketPeriod
+  marketSize: BigInt!
+}
+
 type FuturesTrade @entity {
   id: ID!
   timestamp: BigInt!

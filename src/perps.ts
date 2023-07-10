@@ -14,6 +14,7 @@ import {
   FuturesOrder,
   SmartMarginOrder,
   FundingRatePeriod,
+  HistoricalMarketStat,
 } from '../generated/subgraphs/perps/schema';
 import {
   MarketAdded as MarketAddedEvent,
@@ -97,9 +98,27 @@ export function handlePositionModified(event: PositionModifiedEvent): void {
   let statEntity = FuturesStat.load(account.toHex());
   let cumulativeEntity = getOrCreateCumulativeEntity();
   let marginAccountEntity = FuturesMarginAccount.load(sendingAccount.toHex() + '-' + futuresMarketAddress.toHex());
-
+  let current = new Date(event.block.timestamp.toI32() * 1000);
+  let statId = `${futuresMarketAddress.toHex()}/${current.getUTCFullYear()}-${
+    current.getUTCMonth() + 1
+  }-${current.getUTCDate()}`;
+  let marketStatsEntity = HistoricalMarketStat.load(statId);
   // calculated values
   const synthetixFeePaid = event.params.fee;
+
+  if (marketStatsEntity == null) {
+    marketStatsEntity = new HistoricalMarketStat(statId);
+    marketStatsEntity.period = 'Daily';
+    marketStatsEntity.timestamp = event.block.timestamp;
+    marketStatsEntity.marketSize = event.params.size;
+  } else {
+    marketStatsEntity.marketSize = marketStatsEntity.marketSize.plus(event.params.size);
+  }
+  if (marketEntity) {
+    marketStatsEntity.marketKey = marketEntity.marketKey;
+    marketStatsEntity.marketAsset = marketEntity.asset;
+  }
+  marketStatsEntity.save();
 
   // each trader will have a stats entity created during their first transfer
   if (statEntity == null) {
